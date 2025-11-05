@@ -12,13 +12,14 @@ DECLARE
   k_data_unprocessed  CONSTANT   gggs_data_upload.data_processed%TYPE := 'N';
   k_no_change_char    CONSTANT    CHAR(2) := 'NC';
   k_no_change_numb    CONSTANT    NUMBER := -1;  
-  v_name1                       gggs_stock.name%TYPE;
-  v_name2                       gggs_stock.name%TYPE; 
+  v_category_id                       gggs_category.categoryID%TYPE;
+  v_vendor_id                       gggs_vendor.vendorID%TYPE; 
   v_message                     gggs_error_log_table.error_message%TYPE;  
 
   CURSOR c_gggs IS
     SELECT *
       FROM gggs_data_upload
+      WHERE data_processed = k_data_unprocessed
 	 ORDER BY loadID;  
 
 BEGIN
@@ -55,7 +56,7 @@ BEGIN
         IF (r_gggs.process_type = k_new) THEN
           INSERT INTO gggs_vendor
           VALUES (gggs_vendor_seq.NEXTVAL, r_gggs.column1, r_gggs.column2, r_gggs.column3,
-                  r_gggs.column4, r_gggs.column6, k_status);      
+                  r_gggs.column4, r_gggs.column6, k_active_status);      
                 
         ELSIF (r_gggs.process_type = k_status) THEN
           UPDATE gggs_vendor
@@ -91,17 +92,17 @@ BEGIN
 
         IF (r_gggs.process_type = k_new) THEN
           SELECT categoryID
-            INTO v_name1
+            INTO v_category_id
             FROM gggs_category
            WHERE name = r_gggs.column1;
          
           SELECT vendorID
-            INTO v_name2
+            INTO v_vendor_id
             FROM gggs_vendor
-           WHERE name = r_gggs.column3;     
-      
+           WHERE name = r_gggs.column2;     
+
           INSERT INTO gggs_stock
-          VALUES (gggs_stock_seq.NEXTVAL, v_name1, v_name2, r_gggs.column3,
+          VALUES (gggs_stock_seq.NEXTVAL, v_category_id, v_vendor_id, r_gggs.column3,
                   r_gggs.column4, r_gggs.column7, r_gggs.column8, k_active_status);
                 
         ELSIF (r_gggs.process_type = k_status) THEN
@@ -113,7 +114,7 @@ BEGIN
           UPDATE gggs_stock
              SET description = DECODE(r_gggs.column4, k_no_change_char, description, r_gggs.column4),
                  price = NVL2(r_gggs.column7, r_gggs.column7, price),
-                 no_in_stock = NVL2(r_gggs.column8, (no_in_stock - r_gggs.column8), no_in_stock)
+                 no_in_stock = NVL2(r_gggs.column8, no_in_stock + r_gggs.column8, no_in_stock)
            WHERE name = r_gggs.column1;  
         ELSE 
 	      RAISE_APPLICATION_ERROR(-20001, r_gggs.data_type || ' is not a valid process request for ' || r_gggs.process_type || ' data');
@@ -145,4 +146,3 @@ BEGIN
 
 END;
 /
-  
